@@ -15,37 +15,42 @@ export interface JikanAnime {
   aired?: { string: string };
 }
 
+async function safeJsonFetch<T>(url: string, fallback: T): Promise<T> {
+  try {
+    const res = await fetch(url, {
+      // Prevent long hangs on external API during CI/CD builds
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return fallback;
+    const data = await res.json();
+    return (data?.data ?? fallback) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 export async function searchAnime(query: string): Promise<JikanAnime[]> {
-  const res = await fetch(`${JIKAN_BASE}/anime?q=${encodeURIComponent(query)}&limit=20&sfw=true`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.data ?? [];
+  return safeJsonFetch<JikanAnime[]>(
+    `${JIKAN_BASE}/anime?q=${encodeURIComponent(query)}&limit=20&sfw=true`,
+    []
+  );
 }
 
 export async function getAnimeById(id: string | number): Promise<JikanAnime | null> {
-  const res = await fetch(`${JIKAN_BASE}/anime/${id}`);
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.data ?? null;
+  return safeJsonFetch<JikanAnime | null>(`${JIKAN_BASE}/anime/${id}`, null);
 }
 
 export async function getSeasonalAnime(): Promise<JikanAnime[]> {
-  const res = await fetch(`${JIKAN_BASE}/seasons/now?limit=18`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.data ?? [];
+  return safeJsonFetch<JikanAnime[]>(`${JIKAN_BASE}/seasons/now?limit=18`, []);
 }
 
 export async function getTopAnime(): Promise<JikanAnime[]> {
-  const res = await fetch(`${JIKAN_BASE}/top/anime?limit=18&type=tv`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.data ?? [];
+  return safeJsonFetch<JikanAnime[]>(`${JIKAN_BASE}/top/anime?limit=18&type=tv`, []);
 }
 
 export async function getAnimeEpisodes(id: string | number): Promise<{ mal_id: number; title: string; title_japanese?: string; title_romanji?: string; aired: string }[]> {
-  const res = await fetch(`${JIKAN_BASE}/anime/${id}/episodes`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.data ?? [];
+  return safeJsonFetch<{ mal_id: number; title: string; title_japanese?: string; title_romanji?: string; aired: string }[]>(
+    `${JIKAN_BASE}/anime/${id}/episodes`,
+    []
+  );
 }
